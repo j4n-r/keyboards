@@ -95,7 +95,8 @@ static void battery_status_update_cb(struct battery_status_state state) {
 }
 
 static struct battery_status_state battery_status_get_state(const zmk_event_t *eh) {
-    const struct zmk_battery_state_changed *ev = as_zmk_battery_state_changed(eh);
+    const struct zmk_battery_state_changed *ev =
+        (eh != NULL) ? as_zmk_battery_state_changed(eh) : NULL;
 
     return (struct battery_status_state){
         .level = (ev != NULL) ? ev->state_of_charge : zmk_battery_state_of_charge(),
@@ -131,7 +132,8 @@ static void battery_peripheral_status_update_cb(struct battery_peripheral_status
 }
 
 static struct battery_peripheral_status_state battery_peripheral_status_get_state(const zmk_event_t *eh) {
-    const struct zmk_peripheral_battery_state_changed *ev = as_zmk_peripheral_battery_state_changed(eh);
+    const struct zmk_peripheral_battery_state_changed *ev =
+        (eh != NULL) ? as_zmk_peripheral_battery_state_changed(eh) : NULL;
     uint8_t level = 0;
     if (ev != NULL) {
         level = ev->state_of_charge;
@@ -228,6 +230,19 @@ static void force_redraw_all_widgets(void) {
     }
 }
 
+static void display_wake_work_cb(struct k_work *work) { set_sleep_screen_active(false); }
+
+static void display_sleep_work_cb(struct k_work *work) {
+    set_sleep_screen_active(true);
+    force_redraw_all_widgets();
+    lv_task_handler();
+    lv_refr_now(NULL);
+}
+
+K_WORK_DEFINE(display_wake_work, display_wake_work_cb);
+K_WORK_DEFINE(display_sleep_work, display_sleep_work_cb);
+static struct k_work_sync display_sleep_work_sync;
+
 static int display_activity_event_handler(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
     if (ev == NULL) {
@@ -236,22 +251,24 @@ static int display_activity_event_handler(const zmk_event_t *eh) {
 
     switch (ev->state) {
     case ZMK_ACTIVITY_ACTIVE:
-        set_sleep_screen_active(false);
-        // No need to force a redraw, it will happen automatically if really coming back from sleep (ACTIVE also comes after IDLE)
-        //force_redraw_all_widgets();
+        if (k_work_submit_to_queue(zmk_display_work_q(), &display_wake_work) < 0) {
+            LOG_ERR("Failed to queue display wake update");
+        }
         break;
-    case ZMK_ACTIVITY_SLEEP:
-        set_sleep_screen_active(true);
-        force_redraw_all_widgets();
-        // Force LVGL to process pending updates and flush to display hardware
-        // before the CPU enters deep sleep
-        lv_task_handler();
-        lv_refr_now(NULL);
+    case ZMK_ACTIVITY_SLEEP: {
+        int ret = k_work_submit_to_queue(zmk_display_work_q(), &display_sleep_work);
+        if (ret < 0) {
+            LOG_ERR("Failed to queue display sleep update: %d", ret);
+            break;
+        }
+
+        k_work_flush(&display_sleep_work, &display_sleep_work_sync);
         break;
+    }
     default:
         break; // ignore other states (like IDLE)
     }
-    return 0;
+    return ZMK_EV_EVENT_BUBBLE;
 }
 
 ZMK_LISTENER(nice_view_gem_display, display_activity_event_handler);
@@ -274,7 +291,8 @@ static void chart_status_update_cb(struct chart_status_state state) {
 }
 
 static struct chart_status_state chart_status_get_state(const zmk_event_t *eh) {
-    const struct zmk_wpm_state_changed *ev = as_zmk_wpm_state_changed(eh);
+    const struct zmk_wpm_state_changed *ev =
+        (eh != NULL) ? as_zmk_wpm_state_changed(eh) : NULL;
     return (struct chart_status_state){
         .wpm = (ev != NULL) ? ev->state : zmk_wpm_get_state(),
     };
