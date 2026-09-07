@@ -52,7 +52,7 @@
                 // Row 1
                 &bt BT_CLR    &kp Q    &vial_td_layer 4 W    &kp E    &kp R    &kp T    &kp Y    &kp U    &kp I    &kp O    &kp P    &bt BT_NXT
                 // Row 2
-                &kp BSPC    &vial_td_mod LGUI A    &vial_td_mod LALT S    &vial_td_mod RCTRL D    &mt LSHIFT F    &kp G    &kp H    &mt RSHIFT J    &vial_td_mod RCTRL K    &vial_td_mod LALT L    &vial_td_mod RGUI SEMI    &kp SQT
+                &kp BSPC    &vial_td_mod LGUI A    &vial_td_mod LALT S    &vial_td_mod RCTRL D    &vial_td_mod LSHIFT F    &kp G    &kp H    &vial_td_mod RSHIFT J    &vial_td_mod RCTRL K    &vial_td_mod LALT L    &vial_td_mod RGUI SEMI    &kp SQT
                 // Row 3
                 &kp CAPSLOCK    &kp Z    &kp X    &kp C    &vial_td_layer 4 V    &kp B    &kp N    &kp M    &kp COMMA    &kp DOT    &kp FSLH    &kp CAPSLOCK
                 // Thumbs
